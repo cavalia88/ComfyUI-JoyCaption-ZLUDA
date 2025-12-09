@@ -1,5 +1,6 @@
 import torch
 import folder_paths
+import comfy.model_management
 from pathlib import Path
 from PIL import Image
 from torchvision.transforms import ToPILImage
@@ -34,7 +35,9 @@ def suppress_output(func):
 os.environ['TRANSFORMERS_VERBOSITY'] = 'error'
 os.environ['TOKENIZERS_PARALLELISM'] = 'false'
 
-if torch.cuda.is_available():
+device = comfy.model_management.get_torch_device()
+
+if device.type == "cuda":
     torch.backends.cudnn.benchmark = True
     if hasattr(torch.backends, 'cuda'):
         if hasattr(torch.backends.cuda, 'matmul'):
@@ -116,8 +119,11 @@ class JC_GGUF_Models:
             n_ctx = MODEL_SETTINGS["context_window"]
             n_batch = 2048
             n_threads = max(4, MODEL_SETTINGS["cpu_threads"])
+            
+            current_device = comfy.model_management.get_torch_device()
+            
             if processing_mode == "Auto":
-                n_gpu_layers = -1 if torch.cuda.is_available() else 0
+                n_gpu_layers = -1 if current_device.type == "cuda" else 0
             elif processing_mode == "GPU":
                 n_gpu_layers = -1
             else:  # CPU
