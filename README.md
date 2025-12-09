@@ -1,3 +1,13 @@
+# ComfyUI-JoyCaption-ZLUDA
+
+Fork of ComfyUI-JoyCaption to be compatible with ComfyUI-ZLUDA. Used LLM to come up with the changes. Only works with Full Precision (BF16).
+
+Key changes:
+
+- Device Management: Replaced hardcoded cuda checks with comfy.model_management.get_torch_device(). This ensures the code uses whatever device ComfyUI detects, which is critical for ZLUDA (AMD) environments.
+- Generalization: Updated JC.py to use device.type checks instead of assuming "cuda" string availability, and generalized the autocast context to use the correct device type.
+- GGUF Support: Updated JC_GGUF.py to also use Comfy's device management for determining if GPU acceleration should be enabled.
+
 # ComfyUI-JoyCaption
 
 Joy Caption is a ComfyUI custom node powered by the LLaVA model for efficient, stylized image captioning. Caption Tools nodes handle batch image processing and automatic separation of caption text.
@@ -327,6 +337,7 @@ The models are trained on diverse datasets, ensuring:
 
 
 This repository's code is released under the GPL-3.0 License.
+
 
 
 
