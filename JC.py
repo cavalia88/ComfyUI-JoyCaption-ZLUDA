@@ -1,6 +1,7 @@
 import torch
 from transformers import AutoProcessor, LlavaForConditionalGeneration, BitsAndBytesConfig
 import folder_paths
+import comfy.model_management
 from pathlib import Path
 from PIL import Image
 from torchvision.transforms import ToPILImage
@@ -88,7 +89,7 @@ class JC_Models:
                 self.processor = _MODEL_CACHE[cache_key]["processor"]
                 self.model = _MODEL_CACHE[cache_key]["model"]
                 self.device = _MODEL_CACHE[cache_key]["device"]
-                if not next(self.model.parameters()).is_cuda:
+                if self.device.type == "cuda" and not next(self.model.parameters()).is_cuda:
                     raise RuntimeError("Cached model not on GPU")
                 print(f"Using cached model: {cache_key}")
                 return
@@ -103,9 +104,9 @@ class JC_Models:
             from huggingface_hub import snapshot_download
             snapshot_download(repo_id=model, local_dir=str(checkpoint_path), force_download=False, local_files_only=False)
         
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.device = comfy.model_management.get_torch_device()
         
-        if self.device == "cuda":
+        if self.device.type == "cuda":
             torch.backends.cudnn.benchmark = True
             if hasattr(torch.backends, 'cuda'):
                 if hasattr(torch.backends.cuda, 'matmul'):
@@ -133,8 +134,9 @@ class JC_Models:
         else:
             self.target_size = (336, 336)
 
+        device_str = "cuda" if self.device.type == "cuda" else "cpu"
         model_kwargs = {
-            "device_map": "cuda" if self.device == "cuda" else "cpu",
+            "device_map": device_str,
         }
 
         try:
@@ -183,7 +185,7 @@ class JC_Models:
             
             self.model.eval()
             
-            if self.device == "cuda" and not next(self.model.parameters()).is_cuda:
+            if self.device.type == "cuda" and not next(self.model.parameters()).is_cuda:
                 raise RuntimeError("Model failed to load on GPU")
             
             if memory_mode == "Global Cache":
@@ -194,7 +196,7 @@ class JC_Models:
                 }
                 
         except Exception as e:
-            cleanup_model_resources(self.model, self.processor)
+            cleanup_model_resources(self.model if hasattr(self, 'model') else None, self.processor)
             handle_model_error(e)
     
     @torch.inference_mode()
@@ -218,7 +220,7 @@ class JC_Models:
         if hasattr(inputs, 'pixel_values') and inputs['pixel_values'] is not None:
             inputs['pixel_values'] = inputs['pixel_values'].to(self.model.dtype)
 
-        with torch.cuda.amp.autocast(enabled=True):
+        with torch.cuda.amp.autocast(enabled=(self.device.type == "cuda")):
             generate_ids = self.model.generate(
                 **inputs,
                 max_new_tokens=max_new_tokens,
@@ -440,4 +442,3 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "JC_adv": "JoyCaption (Advanced)",
     "JC_ExtraOptions": "JoyCaption Extra Options",
 }
-
